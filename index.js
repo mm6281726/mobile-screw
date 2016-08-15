@@ -28,7 +28,13 @@ app.get('/upload', function (req, res) {
   var requestId = id;
   id++;
 
-  console.log("Processing Request #"+requestId+"...");  
+  console.log("Processing Request #"+requestId+"...");
+
+  try {
+    fs.mkdirSync(__dirname + "/public/tmp");
+  } catch(e) {
+    if ( e.code != 'EEXIST' ) throw e;
+  }
 
   var playbackrate = req.query.rpm
   var url = req.query.url;
