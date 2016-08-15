@@ -1,11 +1,25 @@
 {
   "name": "screw-mobile",
   "version": "1.0.0",
-  "description": "Slow down tracks",
+  "description": "chop & screw",
   "main": "index.js",
+  "dependencies": {},
+  "devDependencies": {},
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mm6281726/mobile-screw.git"
+  },
+  "keywords": [
+    "chop",
+    "screw"
+  ],
   "author": "Michael Madden",
-  "license": "ISC"
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/mm6281726/mobile-screw/issues"
+  },
+  "homepage": "https://github.com/mm6281726/mobile-screw#readme"
 }
