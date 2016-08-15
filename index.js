@@ -25,13 +25,15 @@ app.get('/', function (req, res) {
 });
 
 app.get('/upload', function (req, res) {
+  var pathname = __dirname + "/public/tmp/";
+
   var requestId = id;
   id++;
 
   console.log("Processing Request #"+requestId+"...");
 
   try {
-    fs.mkdirSync(__dirname + "/public/tmp");
+    fs.mkdirSync(pathname);
   } catch(e) {
     if ( e.code != 'EEXIST' ) throw e;
   }
@@ -45,8 +47,9 @@ app.get('/upload', function (req, res) {
 
     console.log("Title:" + title)
 
-    var videofile = __dirname + '/public/tmp/'+title+requestId+'.mp4';
-    var audiofile = __dirname + '/public/tmp/'+title+requestId+'.mp3';
+    var filename = pathname+title+requestId;
+    var videofile = filename+'.mp4';
+    var audiofile = filename+'.mp3';
     var filestream;
 
     console.log("Booting up stream...");
@@ -64,12 +67,7 @@ app.get('/upload', function (req, res) {
       console.log("Stream finished...");
       console.log("Begin command...");
 
-      command = new ffmpeg(__dirname + '/public/tmp/'+title+requestId+'.mp4')
-                    .audioCodec('libmp3lame')
-                    .noVideo()
-                    .audioFilters(['asetrate=' + samplerate * playbackrate])
-                    .format('mp3')
-                    .save(__dirname + '/public/tmp/'+title+requestId+'.mp3');
+      command = convertMp4ToMp3(filename, playbackrate);
       
       command.on('end', function(stdout, stderr){
 
@@ -99,3 +97,12 @@ app.get('/upload', function (req, res) {
 server.listen(port, function() {
   console.log("Running at Port " + port);
 })
+
+function convertMp4ToMp3(filename, playbackrate){
+  return new ffmpeg(filename+'.mp4')
+                    .audioCodec('libmp3lame')
+                    .noVideo()
+                    .audioFilters(['asetrate=' + samplerate * playbackrate])
+                    .format('mp3')
+                    .save(filename+'.mp3');
+}
