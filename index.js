@@ -100,7 +100,7 @@ server.listen(port, function() {
 
 function convertMp4ToMp3(filename, playbackrate){
   return new ffmpeg(filename+'.mp4')
-                    .audioCodec('libmp3lame')
+                    // .audioCodec('libmp3lame')
                     .noVideo()
                     .audioFilters(['asetrate=' + samplerate * playbackrate])
                     .format('mp3')
