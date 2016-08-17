@@ -2,10 +2,12 @@ var express = require('express');
 var app = express();
 var server = require('http').Server(app);
 var port = process.env.PORT || 3000;
+var cuid = require('cuid');
 
 var path = require("path");
 var mime = require('mime');
 
+var async = require('async');
 var fs = require('fs');
 var ytdl = require('ytdl-core');
 
@@ -13,9 +15,10 @@ var ffmpeg = require('fluent-ffmpeg');
 
 var samplerate = 44100;
 
-var id = 0;
+var pathname = __dirname + "/app/tmp/";
 
-app.use(express.static(__dirname + '/public'));
+
+app.use(express.static(__dirname + '/app'));
 app.use('/js', express.static(__dirname + '/node_modules/bootstrap/dist/js')); // redirect bootstrap JS
 app.use('/js', express.static(__dirname + '/node_modules/jquery/dist')); // redirect JS jQuery
 app.use('/css', express.static(__dirname + '/node_modules/bootstrap/dist/css')); // redirect CSS bootstrap
@@ -25,84 +28,129 @@ app.get('/', function (req, res) {
 });
 
 app.get('/upload', function (req, res) {
-  var pathname = __dirname + "/public/tmp/";
-
-  var requestId = id;
-  id++;
-
-  console.log("Processing Request #"+requestId+"...");
-
   try {
     fs.mkdirSync(pathname);
   } catch(e) {
     if ( e.code != 'EEXIST' ) throw e;
   }
 
-  var playbackrate = req.query.rpm
-  var url = req.query.url;
+  res.locals.requestId = cuid();  
 
-  var title;
-  ytdl.getInfo(url, function(err, info) {
-    title = info.title;
+  res.locals.url = req.query.url;
+  res.locals.playbackrate = req.query.rpm
 
-    console.log("Title:" + title)
-
-    var filename = pathname+title+requestId;
-    var videofile = filename+'.mp4';
-    var audiofile = filename+'.mp3';
-    var filestream;
-
-    console.log("Booting up stream...");
-
-    try {
-      filestream = ytdl(url, { filter: function(format) { return format.container === 'mp4';} })
-                    .pipe(fs.createWriteStream(videofile));
-    } catch (exception) {
-      res.status(500).send(exception);
+  async.waterfall([
+      async.apply(applyRes, res),
+      getTitle,
+      convertYoutubeToMp4,
+      convertMp4ToMp3,
+      download
+    ], function (err, results) {
+      if(err) {
+        console.log(err);
+      } else {
+        console.log(results);
+      }
     }
-
-    var command
-    filestream.on('finish', function() {
-
-      console.log("Stream finished...");
-      console.log("Begin command...");
-
-      command = convertMp4ToMp3(filename, playbackrate);
-      
-      command.on('end', function(stdout, stderr){
-
-        console.log("Command complete...");
-        console.log("Downloading file...");
-
-        res.download(audiofile, function(err){
-          if(err){
-            console.log("Sorry, there was an error.");
-          }else{
-            fs.unlink(videofile);
-            fs.unlink(audiofile);
-
-            console.log("Done.");          
-          }
-        });      
-      });
-
-      console.log("Command in progress...");
-    });
-
-    console.log("Stream in progress...");
-
-  });
+  );
 });
+
+function download(res, callback) {
+  var videofile = res.locals.filename+'.mp4';
+  var audiofile = res.locals.filename+'.mp3';
+
+  console.log("Downloading file " + audiofile + "...");
+
+  var title = res.locals.filename - res.locals.requestId + '.mp3';
+
+  res.download(audiofile, function(err){
+    if(err){      
+      callback("Sorry, there was an error.", null);
+    }else{
+      fs.unlink(videofile);
+      fs.unlink(audiofile);
+
+      callback(null, "Done.");
+
+    }
+  });
+}
+
+function convertMp4ToMp3(res, callback) {
+  var videofile = res.locals.filename+'.mp4';
+  var audiofile = res.locals.filename+'.mp3';
+  
+  console.log("Begin command...");
+
+  var command
+  try {
+    command = new ffmpeg(videofile)
+                  .audioCodec('libmp3lame')
+                  .noVideo()
+                  .audioFilters(['asetrate=' + samplerate * res.locals.playbackrate])
+                  .format('mp3')
+                  .save(audiofile);
+  } catch (e) {
+    callback(e, null);
+    return;
+  }
+
+  console.log("Command in progress...");
+
+  command.on('end', function(stdout, stderr) {
+
+    console.log("Command complete...");
+
+    callback(null, res);
+  });
+}
+
+function convertYoutubeToMp4(res, callback) {
+
+  console.log("Booting up stream...");
+
+  var videofile = res.locals.filename+'.mp4';
+  var filestream;
+  try {
+    filestream = ytdl(res.locals.url, { filter: function(format) { return format.container === 'mp4';} })
+                    .pipe(fs.createWriteStream(videofile));
+  } catch (e) {
+    callback(e, null);
+    return;
+  }
+
+  console.log("Stream in progress...");
+
+  filestream.on('finish', function() {
+
+    console.log("Stream finished...");
+
+    callback(null, res);
+  });
+}
+
+function getTitle(res, callback) {
+  ytdl.getInfo(res.locals.url, function(err, info) {
+    if (err) {
+      callback("Could not get title.", null);
+    } else {
+      var title = info.title;      
+      res.locals.filename = pathname+title+res.locals.requestId;
+
+      console.log("Title:" + title);
+
+      callback(null, res);
+    }
+  });
+}
+
+function applyRes(res, callback){
+  
+  console.log("Processing Request ID: "+res.locals.requestId+"...");
+
+  callback(null, res);
+}
 
 server.listen(port, function() {
   console.log("Running at Port " + port);
 })
-
-function convertMp4ToMp3(filename, playbackrate){
-  return new ffmpeg(filename+'.mp4')
-                    .audioCodec('libmp3lame')
-                    .noVideo()
-                    .audioFilters(['asetrate=' + samplerate * playbackrate])
-                    .format('mp3')
-                    .save(filename+'.mp3');
-}
