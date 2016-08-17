@@ -61,9 +61,7 @@ function download(res, callback) {
 
   console.log("Downloading file " + audiofile + "...");
 
-  var title = res.locals.filename - res.locals.requestId + '.mp3';
-
-  res.download(audiofile, function(err){
+  res.download(audiofile, res.locals.title + ' (C & S).mp3', function(err){
     if(err){      
       callback("Sorry, there was an error.", null);
     }else{
@@ -134,10 +132,10 @@ function getTitle(res, callback) {
     if (err) {
       callback("Could not get title.", null);
     } else {
-      var title = info.title;      
-      res.locals.filename = pathname+title+res.locals.requestId;
+      res.locals.title = info.title;      
+      res.locals.filename = pathname+info.title+res.locals.requestId;
 
-      console.log("Title:" + title);
+      console.log("Title:" + info.title);
 
       callback(null, res);
     }
