@@ -42,10 +42,7 @@ app.get('/upload', function (req, res) {
   async.waterfall([
       async.apply(applyRes, res),
       getTitle,
-      convertYoutubeToMp4,
-      convertMp4ToMp3,
-      // convertYoutubeToMp3,
-      download
+      convertYoutubeToMp3
     ], function (err, results) {
       if(err) {
         console.log(err);
@@ -56,123 +53,41 @@ app.get('/upload', function (req, res) {
   );
 });
 
-function download(res, callback) {
-  var videofile = res.locals.filename+'.mp4';
-  var audiofile = res.locals.filename+'.mp3';
-
-  console.log("Downloading file " + audiofile + "...");
-
-  res.download(audiofile, res.locals.info.title + ' (C & S).mp3', function(err){
-    if(err){      
-      callback("Sorry, there was an error.", null);
-    }else{
-      fs.unlink(videofile);
-      fs.unlink(audiofile);
-
-      callback(null, "Done.");
-
-    }
-  });
-}
-
 function convertYoutubeToMp3(res, callback) {
-  var videofile = res.locals.filename+'.mp4';
   var audiofile = res.locals.filename+'.mp3';
-
-  console.log("Booting up stream...");
-
-  var filestream;
-  try {
-    filestream = ytdl.getFromInfo(res.locals.url, { filter: function(format) { return format.container === 'mp4';} })
-                    .pipe(fs.createWriteStream(videofile));
-  } catch (e) {
-    callback(e, null);
-    return;
-  }
 
   console.log("Stream in progress...");  
   
-  console.log("Begin command...");
+  ffmpeg()
+    .input(ytdl.downloadFromInfo(res.locals.info, { filter: function(f) {
+      return f.container === 'mp4' && !f.encoding; } }))
+      .audioFilters(['asetrate=' + samplerate * res.locals.playbackrate])
+      .format('mp3')
+      .save(audiofile)
+      .on('error', function(err) {
+        callback(err, null);
+      })
+      .on('progress', function(progress) {
+        process.stdout.cursorTo(0);
+        process.stdout.clearLine(1);
+        process.stdout.write(progress.timemark);
+      }).on('end', function() {
+        
+        console.log("\nStream finished...");
 
-  var command
-  try {
-    command = new ffmpeg(fs.createReadStream(videofile))
-                  .audioCodec('libmp3lame')
-                  .noVideo()
-                  .audioFilters(['asetrate=' + samplerate * res.locals.playbackrate])
-                  .format('mp3')
-                  .save(fs.createWriteStream(audiofile));
-  } catch (e) {
-    callback(e, null);
-    return;
-  }
+        console.log("Downloading file " + audiofile + "...");
 
-  console.log("Command in progress...");
+        res.download(audiofile, res.locals.info.title + ' (C & S).mp3', function(err){
+          if(err){      
+            callback("Sorry, there was an error.", null);
+          }else{
+            fs.unlink(audiofile);
 
-  filestream.on('finish', function() {
+            callback(null, "Done.");
 
-    console.log("Stream finished...");
-
-    command.on('end', function(stdout, stderr) {
-
-      console.log("Command complete...");
-
-      callback(null, res);
-    });
-  });    
-}
-
-function convertMp4ToMp3(res, callback) {
-  var videofile = res.locals.filename+'.mp4';
-  var audiofile = res.locals.filename+'.mp3';
-  
-  console.log("Begin command...");
-
-  var command
-  try {
-    command = new ffmpeg(videofile)
-                  .audioCodec('libmp3lame')
-                  .noVideo()
-                  .audioFilters(['asetrate=' + samplerate * res.locals.playbackrate])
-                  .format('mp3')
-                  .save(audiofile);
-  } catch (e) {
-    callback(e, null);
-    return;
-  }
-
-  console.log("Command in progress...");
-
-  command.on('end', function(stdout, stderr) {
-
-    console.log("Command complete...");
-
-    callback(null, res);
-  });
-}
-
-function convertYoutubeToMp4(res, callback) {
-  var videofile = res.locals.filename+'.mp4';
-
-  console.log("Booting up stream...");
-  
-  var filestream;
-  try {
-    filestream = ytdl.downloadFromInfo(res.locals.info, { filter: function(format) { return format.container === 'mp4';} })
-                    .pipe(fs.createWriteStream(videofile));
-  } catch (e) {
-    callback(e, null);
-    return;
-  }
-
-  console.log("Stream in progress...");
-
-  filestream.on('finish', function() {
-
-    console.log("Stream finished...");
-
-    callback(null, res);
-  });
+          }
+        });
+      });  
 }
 
 function getTitle(res, callback) {
