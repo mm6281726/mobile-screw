@@ -62,7 +62,7 @@ function download(res, callback) {
 
   console.log("Downloading file " + audiofile + "...");
 
-  res.download(audiofile, res.locals.title + ' (C & S).mp3', function(err){
+  res.download(audiofile, res.locals.info.title + ' (C & S).mp3', function(err){
     if(err){      
       callback("Sorry, there was an error.", null);
     }else{
@@ -83,7 +83,7 @@ function convertYoutubeToMp3(res, callback) {
 
   var filestream;
   try {
-    filestream = ytdl(res.locals.url, { filter: function(format) { return format.container === 'mp4';} })
+    filestream = ytdl.getFromInfo(res.locals.url, { filter: function(format) { return format.container === 'mp4';} })
                     .pipe(fs.createWriteStream(videofile));
   } catch (e) {
     callback(e, null);
@@ -158,7 +158,7 @@ function convertYoutubeToMp4(res, callback) {
   
   var filestream;
   try {
-    filestream = ytdl(res.locals.url, { filter: function(format) { return format.container === 'mp4';} })
+    filestream = ytdl.downloadFromInfo(res.locals.info, { filter: function(format) { return format.container === 'mp4';} })
                     .pipe(fs.createWriteStream(videofile));
   } catch (e) {
     callback(e, null);
@@ -183,7 +183,7 @@ function getTitle(res, callback) {
     if (err) {
       callback("Could not get title.", null);
     } else {
-      res.locals.title = info.title;      
+      res.locals.info = info;      
       res.locals.filename = pathname+info.title+res.locals.requestId;
 
       console.log("Title:" + info.title);
