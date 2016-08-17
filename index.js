@@ -44,6 +44,7 @@ app.get('/upload', function (req, res) {
       getTitle,
       convertYoutubeToMp4,
       convertMp4ToMp3,
+      // convertYoutubeToMp3,
       download
     ], function (err, results) {
       if(err) {
@@ -72,6 +73,53 @@ function download(res, callback) {
 
     }
   });
+}
+
+function convertYoutubeToMp3(res, callback) {
+  var videofile = res.locals.filename+'.mp4';
+  var audiofile = res.locals.filename+'.mp3';
+
+  console.log("Booting up stream...");
+
+  var filestream;
+  try {
+    filestream = ytdl(res.locals.url, { filter: function(format) { return format.container === 'mp4';} })
+                    .pipe(fs.createWriteStream(videofile));
+  } catch (e) {
+    callback(e, null);
+    return;
+  }
+
+  console.log("Stream in progress...");  
+  
+  console.log("Begin command...");
+
+  var command
+  try {
+    command = new ffmpeg(fs.createReadStream(videofile))
+                  .audioCodec('libmp3lame')
+                  .noVideo()
+                  .audioFilters(['asetrate=' + samplerate * res.locals.playbackrate])
+                  .format('mp3')
+                  .save(fs.createWriteStream(audiofile));
+  } catch (e) {
+    callback(e, null);
+    return;
+  }
+
+  console.log("Command in progress...");
+
+  filestream.on('finish', function() {
+
+    console.log("Stream finished...");
+
+    command.on('end', function(stdout, stderr) {
+
+      console.log("Command complete...");
+
+      callback(null, res);
+    });
+  });    
 }
 
 function convertMp4ToMp3(res, callback) {
@@ -104,10 +152,10 @@ function convertMp4ToMp3(res, callback) {
 }
 
 function convertYoutubeToMp4(res, callback) {
+  var videofile = res.locals.filename+'.mp4';
 
   console.log("Booting up stream...");
-
-  var videofile = res.locals.filename+'.mp4';
+  
   var filestream;
   try {
     filestream = ytdl(res.locals.url, { filter: function(format) { return format.container === 'mp4';} })
@@ -128,6 +176,9 @@ function convertYoutubeToMp4(res, callback) {
 }
 
 function getTitle(res, callback) {
+  
+  console.log("Processing Request ID: "+res.locals.requestId+"...");
+
   ytdl.getInfo(res.locals.url, function(err, info) {
     if (err) {
       callback("Could not get title.", null);
@@ -142,10 +193,7 @@ function getTitle(res, callback) {
   });
 }
 
-function applyRes(res, callback){
-  
-  console.log("Processing Request ID: "+res.locals.requestId+"...");
-
+function applyRes(res, callback){  
   callback(null, res);
 }
 
