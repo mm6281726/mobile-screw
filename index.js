@@ -70,9 +70,8 @@ function convertYoutubeToMp3(res, callback) {
       .on('progress', function(progress) {
         console.log(progress.timemark);
       }).on('end', function() {
-        
-        console.log("\nStream finished...");
 
+        console.log("Stream finished...");
         console.log("Downloading file " + audiofile + "...");
 
         res.download(audiofile, res.locals.info.title + ' (C & S).mp3', function(err){
@@ -80,12 +79,10 @@ function convertYoutubeToMp3(res, callback) {
             callback("Sorry, there was an error.", null);
           }else{
             fs.unlink(audiofile);
-
             callback(null, "Done.");
-
           }
         });
-      });  
+      });
 }
 
 function getTitle(res, callback) {
