@@ -68,9 +68,7 @@ function convertYoutubeToMp3(res, callback) {
         callback(err, null);
       })
       .on('progress', function(progress) {
-        process.stdout.cursorTo(0);
-        process.stdout.clearLine(1);
-        process.stdout.write(progress.timemark);
+        console.log(progress.timemark);
       }).on('end', function() {
         
         console.log("\nStream finished...");
