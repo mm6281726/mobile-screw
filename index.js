@@ -41,6 +41,7 @@ app.get('/upload', function (req, res) {
   res.locals.playbackrate = req.query.rpm
 
   console.log("Initiating socket connection...");
+  console.time("execution");
 
   var listener = io.listen(server);
 
@@ -62,6 +63,8 @@ app.get('/upload', function (req, res) {
         console.log(msg);
         socket.emit('update', { msg: msg });
       }
+
+      console.timeEnd("execution");
     });
   });
 });
