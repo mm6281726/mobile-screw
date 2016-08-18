@@ -13,9 +13,9 @@ var ytdl = require('ytdl-core');
 
 var ffmpeg = require('fluent-ffmpeg');
 
-var samplerate = 44100;
 
-var pathname = __dirname + "/app/tmp/";
+const pathname = __dirname + "/app/tmp/";
+const samplerate = 44100;
 
 
 app.use(express.static(__dirname + '/app'));
@@ -59,11 +59,16 @@ function convertYoutubeToMp3(res, callback) {
 
   var title = res.locals.info.title;
   var audiofile = pathname+title+res.locals.requestId+'.mp3';
-console.log(res.locals.info.length_seconds);
+  
+  var playbackrate = res.locals.playbackrate;
+  var totalTime = (res.locals.info.length_seconds / playbackrate);
+
+  console.log("Total Duration: " + totalTime + "s");
+
   ffmpeg()
     .input(ytdl.downloadFromInfo(res.locals.info, { filter: function(f) {
       return f.container === 'mp4' && !f.encoding; } }))
-      .audioFilters(['asetrate=' + samplerate * res.locals.playbackrate])
+      .audioFilters(['asetrate=' + samplerate * playbackrate])
       .outputOptions(['-write_xing 0'])
       // .format('mp3')
       .save(audiofile)

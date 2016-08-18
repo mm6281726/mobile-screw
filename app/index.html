@@ -17,11 +17,12 @@
 				<label for="rpm">Finagle with the speed (Range 0.5 - 2.0, Recommended: 0.73):</label>
 				<div class="row-fluid" style="width:20%;">
 					<input type="range" id="slider" name="slider" value="0.73" min="0.5" max="2.0" step="0.01" style="width:auto;"/>
-					<input type="number" id="rpm" name="rpm" value="0.73" min="0.5" max="2.0" step="0.01" style="width:75px;margin-top:-25px;float:right;"/>
+					<input type="number" id="rpm" name="rpm" value="0.73" min="0.5" max="2.0" step="0.01" style="width:75px;margin-top:-25px;float:right;" class="form-control"/>					
 				</div>
 			</div>
 			<div class="form-group">
 				<input id="upload" type="submit" value="Upload" class="btn btn-large btn-primary"/>
+				<!-- <div id="reset" class="btn btn-primary">Reset</div> -->
 			</div>
 		</form>
 
@@ -32,8 +33,13 @@
 		<script src="/js/jquery.min.js"></script>
 		<script src="js/bootstrap.min.js"></script>
 		<script>
-			$('#slider').on('change', function(){
+			$('#slider').on('change', function() {
 				$('#rpm').val($('#slider').val());
+			});
+
+			$('#reset').click( function() {
+				$('#rpm').val(0.73);
+				$('#slider').val(0.73);
 			});
 		</script>
 	</body>
