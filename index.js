@@ -52,10 +52,10 @@ app.get('/upload', function (req, res) {
     async.waterfall([
       async.apply(applyRes, res, socket),
       getTitle,
-      convertYoutubeToMp3
+      convertYoutubeToMp31
     ], function (err, results) {
       if(err) {
-        msg = err
+        msg = err;
         console.log(msg);
         socket.emit('update', { msg: msg });
       } else {
@@ -65,9 +65,53 @@ app.get('/upload', function (req, res) {
       }
 
       console.timeEnd("execution");
+
     });
   });
 });
+
+function convertYoutubeToMp31(res, socket, callback) {  
+
+  msg = "Stream in progress..."
+  console.log(msg);
+  socket.emit('update', { msg: msg });
+
+  var title = res.locals.info.title;
+  var audiofile = pathname+title+res.locals.requestId+'.mp3';
+  
+  var playbackrate = res.locals.playbackrate;
+  var totalTime = Math.floor(res.locals.info.length_seconds / playbackrate);
+
+  ffmpeg({ timeout: 30 })
+    .input(ytdl.downloadFromInfo(res.locals.info, { filter: function(f) {
+      return f.container === 'mp4' && !f.encoding; } }))
+      .audioFilters(['asetrate=' + samplerate * playbackrate])
+      .outputOptions(['-write_xing 0'])
+      .toFormat('mp4')
+      // .withAudioCodec('copy')
+      .on('error', function(err) {
+        callback(err.message, null);
+      })
+      .on('progress', function(progress) {
+
+        var currentProgress = new Date('1970-01-01T' + progress.timemark + 'Z').getTime() / 1000
+        var percentProgress = Math.floor((currentProgress / totalTime) * 100)
+        var msg = 'Percent Complete: ' + percentProgress + "%";
+        console.log(msg);
+        socket.emit('update', { msg: msg, progress: true });
+
+      }).on('end', function() {
+        
+        msg = "Stream finished..."
+        console.log(msg);
+        socket.emit('update', { msg: msg });
+
+        msg = "Downloading file " + title + " (C & S).mp3...";
+        console.log(msg);
+        socket.emit('update', { msg: msg });
+
+      }).pipe(res, {end:true});
+}
 
 function convertYoutubeToMp3(res, socket, callback) {  
 
@@ -81,17 +125,14 @@ function convertYoutubeToMp3(res, socket, callback) {
   var playbackrate = res.locals.playbackrate;
   var totalTime = Math.floor(res.locals.info.length_seconds / playbackrate);
 
-  console.log("Total Duration: " + totalTime + "s");
-
-  ffmpeg()
+  ffmpeg({ timeout: 30 })
     .input(ytdl.downloadFromInfo(res.locals.info, { filter: function(f) {
       return f.container === 'mp4' && !f.encoding; } }))
       .audioFilters(['asetrate=' + samplerate * playbackrate])
       .outputOptions(['-write_xing 0'])
-      // .format('mp3')
       .save(audiofile)
       .on('error', function(err) {
-        callback(err, null);
+        callback(err.message, null);
       })
       .on('progress', function(progress) {
 
@@ -103,23 +144,23 @@ function convertYoutubeToMp3(res, socket, callback) {
 
       }).on('end', function() {
         
-      msg = "Stream finished..."
-      console.log(msg);
-      socket.emit('update', { msg: msg });
+        msg = "Stream finished..."
+        console.log(msg);
+        socket.emit('update', { msg: msg });
 
-      msg = "Downloading file " + title + " (C & S).mp3...";
-      console.log(msg);
-      socket.emit('update', { msg: msg });
-        
-      res.download(audiofile, title + ' (C & S).mp3', function(err){
-        if(err){      
-          callback("Sorry, there was an error.", null);
-        }else{
-          fs.unlink(audiofile);
-          callback(null, "Done.");
-        }
+        msg = "Downloading file " + title + " (C & S).mp3...";
+        console.log(msg);
+        socket.emit('update', { msg: msg });
+          
+        res.download(audiofile, title + ' (C & S).mp3', function(err){
+          if(err){      
+            callback("Sorry, there was an error.", null);
+          }else{
+            fs.unlink(audiofile);
+            callback(null, "Done.");
+          }
+        });
       });
-    });
 }
 
 function getTitle(res, socket, callback) {
