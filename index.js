@@ -1,6 +1,7 @@
 var express = require('express');
 var app = express();
 var server = require('http').Server(app);
+var io = require('socket.io')(server);
 var port = process.env.PORT || 3000;
 var cuid = require('cuid');
 
@@ -39,29 +40,43 @@ app.get('/upload', function (req, res) {
   res.locals.url = req.query.url;
   res.locals.playbackrate = req.query.rpm
 
-  async.waterfall([
-      async.apply(applyRes, res),
+  console.log("Initiating socket connection...");
+
+  var listener = io.listen(server);
+
+  listener.sockets.on('connection', function(socket) {
+
+    console.log("Socket connected...");
+
+    async.waterfall([
+      async.apply(applyRes, res, socket),
       getTitle,
       convertYoutubeToMp3
     ], function (err, results) {
       if(err) {
-        console.log(err);
+        msg = err
+        console.log(msg);
+        socket.emit('update', { msg: msg });
       } else {
-        console.log(results);
+        msg = results
+        console.log(msg);
+        socket.emit('update', { msg: msg });
       }
-    }
-  );
+    });
+  });
 });
 
-function convertYoutubeToMp3(res, callback) {  
+function convertYoutubeToMp3(res, socket, callback) {  
 
-  console.log("Stream in progress...");
+  msg = "Stream in progress..."
+  console.log(msg);
+  socket.emit('update', { msg: msg });
 
   var title = res.locals.info.title;
   var audiofile = pathname+title+res.locals.requestId+'.mp3';
   
   var playbackrate = res.locals.playbackrate;
-  var totalTime = (res.locals.info.length_seconds / playbackrate);
+  var totalTime = Math.floor(res.locals.info.length_seconds / playbackrate);
 
   console.log("Total Duration: " + totalTime + "s");
 
@@ -76,26 +91,38 @@ function convertYoutubeToMp3(res, callback) {
         callback(err, null);
       })
       .on('progress', function(progress) {
-        console.log(progress.timemark);
-      }).on('end', function() {
 
-        console.log("Stream finished...");
-        console.log("Downloading file " + audiofile + "...");
+        var currentProgress = new Date('1970-01-01T' + progress.timemark + 'Z').getTime() / 1000
+        var percentProgress = Math.floor((currentProgress / totalTime) * 100)
+        var msg = 'Percent Complete: ' + percentProgress + "%";
+        console.log(msg);
+        socket.emit('update', { msg: msg, progress: true });
+
+      }).on('end', function() {
         
-        res.download(audiofile, title + ' (C & S).mp3', function(err){
-          if(err){      
-            callback("Sorry, there was an error.", null);
-          }else{
-            fs.unlink(audiofile);
-            callback(null, "Done.");
-          }
-        });
+      msg = "Stream finished..."
+      console.log(msg);
+      socket.emit('update', { msg: msg });
+
+      msg = "Downloading file " + title + " (C & S).mp3...";
+      console.log(msg);
+      socket.emit('update', { msg: msg });
+        
+      res.download(audiofile, title + ' (C & S).mp3', function(err){
+        if(err){      
+          callback("Sorry, there was an error.", null);
+        }else{
+          fs.unlink(audiofile);
+          callback(null, "Done.");
+        }
       });
+    });
 }
 
-function getTitle(res, callback) {
-  
-  console.log("Processing Request ID: "+res.locals.requestId+"...");
+function getTitle(res, socket, callback) {
+  var msg = "Processing Request ID: " + res.locals.requestId + "...";
+  console.log(msg);
+  socket.emit('update', { msg: "Processing request..." });
 
   ytdl.getInfo(res.locals.url, function(err, info) {
     if (err) {
@@ -103,17 +130,19 @@ function getTitle(res, callback) {
     } else {
       res.locals.info = info;      
 
-      console.log("Title:" + info.title);
+      msg = "Title: " + info.title
+      console.log(msg);
+      socket.emit('update', { msg: msg });
 
-      callback(null, res);
+      callback(null, res, socket);
     }
   });
 }
 
-function applyRes(res, callback){  
-  callback(null, res);
+function applyRes(res, socket, callback){  
+  callback(null, res, socket);
 }
 
 server.listen(port, function() {
   console.log("Running at Port " + port);
-})
+});

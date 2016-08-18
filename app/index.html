@@ -27,12 +27,24 @@
 		</form>
 
 		<div id="update-msg">
-
 		</div>
 
 		<script src="/js/jquery.min.js"></script>
 		<script src="js/bootstrap.min.js"></script>
+		<script src="/socket.io/socket.io.js"></script>
 		<script>
+			var socket = io();
+			socket.on('update', function(data, progress = false) {
+				if (data.progress) {
+					if($('#progress').length == 0){
+						$('#update-msg').append("<div id='progress'></div>");
+					}
+					$('#progress').text(data.msg);
+				} else {
+					$('#update-msg').append(data.msg+"<br/>");
+				}
+			});
+
 			$('#slider').on('change', function() {
 				$('#rpm').val($('#slider').val());
 			});
