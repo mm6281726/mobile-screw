@@ -53,16 +53,19 @@ app.get('/upload', function (req, res) {
   );
 });
 
-function convertYoutubeToMp3(res, callback) {
-  var audiofile = res.locals.filename+'.mp3';
+function convertYoutubeToMp3(res, callback) {  
 
-  console.log("Stream in progress...");  
-  
+  console.log("Stream in progress...");
+
+  var title = res.locals.info.title;
+  var audiofile = pathname+title+res.locals.requestId+'.mp3';
+console.log(res.locals.info.length_seconds);
   ffmpeg()
     .input(ytdl.downloadFromInfo(res.locals.info, { filter: function(f) {
       return f.container === 'mp4' && !f.encoding; } }))
       .audioFilters(['asetrate=' + samplerate * res.locals.playbackrate])
-      .format('mp3')
+      .outputOptions(['-write_xing 0'])
+      // .format('mp3')
       .save(audiofile)
       .on('error', function(err) {
         callback(err, null);
@@ -73,8 +76,8 @@ function convertYoutubeToMp3(res, callback) {
 
         console.log("Stream finished...");
         console.log("Downloading file " + audiofile + "...");
-
-        res.download(audiofile, res.locals.info.title + ' (C & S).mp3', function(err){
+        
+        res.download(audiofile, title + ' (C & S).mp3', function(err){
           if(err){      
             callback("Sorry, there was an error.", null);
           }else{
@@ -94,7 +97,6 @@ function getTitle(res, callback) {
       callback("Could not get title.", null);
     } else {
       res.locals.info = info;      
-      res.locals.filename = pathname+info.title+res.locals.requestId;
 
       console.log("Title:" + info.title);
 
