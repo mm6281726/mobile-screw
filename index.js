@@ -41,7 +41,6 @@ app.get('/upload', function (req, res) {
   res.locals.playbackrate = req.query.rpm
 
   console.log("Initiating socket connection...");
-  console.time("execution");
 
   var listener = io.listen(server);
 
@@ -56,16 +55,11 @@ app.get('/upload', function (req, res) {
     ], function (err, results) {
       if(err) {
         msg = err;
-        console.log(msg);
-        socket.emit('update', { msg: msg });
+        communicate(socket, msg);
       } else {
         msg = results
-        console.log(msg);
-        socket.emit('update', { msg: msg });
+        communicate(socket, msg);
       }
-
-      console.timeEnd("execution");
-
     });
   });
 });
@@ -73,8 +67,7 @@ app.get('/upload', function (req, res) {
 function convertYoutubeToMp3(res, socket, callback) {  
 
   msg = "Stream in progress..."
-  console.log(msg);
-  socket.emit('update', { msg: msg });
+  communicate(socket, msg);
 
   var title = res.locals.info.title;
   var audiofile = pathname+title+res.locals.requestId+'.mp3';
@@ -96,22 +89,20 @@ function convertYoutubeToMp3(res, socket, callback) {
         var currentProgress = new Date('1970-01-01T' + progress.timemark + 'Z').getTime() / 1000
         var percentProgress = Math.floor((currentProgress / totalTime) * 100)
         var msg = 'Percent Complete: ' + percentProgress + "%";
-        console.log(msg);
-        socket.emit('update', { msg: msg, progress: true });
+        communicate(socket, msg, true);
 
       }).on('end', function() {
         
         msg = "Stream finished..."
-        console.log(msg);
-        socket.emit('update', { msg: msg });
+        communicate(socket, msg);
 
         msg = "Downloading file " + title + " (C & S).mp3...";
-        console.log(msg);
-        socket.emit('update', { msg: msg });
+        communicate(socket, msg);
           
         res.download(audiofile, title + ' (C & S).mp3', function(err){
-          if(err){      
-            callback("Sorry, there was an error.", null);
+          if(err){
+            console.log(err.message);
+            callback("Sorry, there was an error.", null);            
           }else{
             fs.unlink(audiofile);
             callback(null, "Done.");
@@ -121,27 +112,31 @@ function convertYoutubeToMp3(res, socket, callback) {
 }
 
 function getTitle(res, socket, callback) {
-  var msg = "Processing Request ID: " + res.locals.requestId + "...";
-  console.log(msg);
-  socket.emit('update', { msg: "Processing request..." });
+  var msg = "Processing request...";
+  communicate(socket, msg);
 
   ytdl.getInfo(res.locals.url, function(err, info) {
     if (err) {
+      console.log(err.message);
       callback("Could not get title.", null);
     } else {
       res.locals.info = info;      
 
       msg = "Title: " + info.title
-      console.log(msg);
-      socket.emit('update', { msg: msg });
+      communicate(socket, msg);
 
       callback(null, res, socket);
     }
   });
 }
 
-function applyRes(res, socket, callback){  
+function applyRes(res, socket, callback) {  
   callback(null, res, socket);
+}
+
+function communicate(socket, msg, progress = false) {
+  console.log(msg);
+  socket.emit('update', { msg: msg, progress: progress });
 }
 
 server.listen(port, function() {
