@@ -1,6 +1,7 @@
 var express = require('express');
 var app = express();
 var server = require('http').Server(app);
+var bodyParser = require('body-parser');
 var io = require('socket.io')(server);
 var port = process.env.PORT || 3000;
 var cuid = require('cuid');
@@ -20,15 +21,20 @@ const samplerate = 44100;
 
 
 app.use(express.static(__dirname + '/app'));
-app.use('/js', express.static(__dirname + '/node_modules/bootstrap/dist/js')); // redirect bootstrap JS
+
 app.use('/js', express.static(__dirname + '/node_modules/jquery/dist')); // redirect JS jQuery
+app.use('/js', express.static(__dirname + '/node_modules/jquery-ui-dist')); // redirect JS jQuery-ui
+app.use('/css', express.static(__dirname + '/node_modules/jquery-ui-dist')); // redirect CSS jQuery-ui
+app.use('/js', express.static(__dirname + '/node_modules/bootstrap/dist/js')); // redirect bootstrap JS
 app.use('/css', express.static(__dirname + '/node_modules/bootstrap/dist/css')); // redirect CSS bootstrap
+
+app.use(bodyParser.urlencoded({ extended: true }));
 
 app.get('/', function (req, res) {
     res.sendFile(path.join(__dirname + '/index.html'));
 });
 
-app.get('/upload', function (req, res) {
+app.post('/upload', function (req, res) {
   try {
     fs.mkdirSync(pathname);
   } catch(e) {
@@ -37,8 +43,8 @@ app.get('/upload', function (req, res) {
 
   res.locals.requestId = cuid();  
 
-  res.locals.url = req.query.url;
-  res.locals.playbackrate = req.query.rpm
+  res.locals.url = req.body.url;
+  res.locals.playbackrate = req.body.rpm
 
   console.log("Initiating socket connection...");
 
@@ -88,7 +94,7 @@ function convertYoutubeToMp3(res, socket, callback) {
 
         var currentProgress = new Date('1970-01-01T' + progress.timemark + 'Z').getTime() / 1000
         var percentProgress = Math.floor((currentProgress / totalTime) * 100)
-        var msg = 'Percent Complete: ' + percentProgress + "%";
+        var msg = percentProgress;
         communicate(socket, msg, true);
 
       }).on('end', function() {

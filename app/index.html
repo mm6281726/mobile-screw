@@ -2,13 +2,14 @@
 <html>
 	<head>
 		<title>screw_mobile</title>
-		<link href="css/bootstrap.min.css" rel="stylesheet">
+		<link href="/css/bootstrap.min.css" rel="stylesheet">
+		<link href="/css/jquery-ui.min.css" rel="stylesheet">
 		<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" name="viewport" />
 		<meta charset=utf-8>
 	</head>
 	<body style="margin-left:15px;">
 		<h1>screw_mobile</h1>
-		<form id="uploadForm" action="../upload" method="get">
+		<form id="uploadForm" action="../upload" method="post">
 			<div class="form-group">
 				<label for="url">Submit a youtube url to be fixed:</label>
 				<input type="url" id="url" name="url" value="https://www.youtube.com/watch?v=8eXPMArx3Dc" style="width:400px;" class="form-control"/>
@@ -21,42 +22,71 @@
 				</div>
 			</div>
 			<div class="form-group">
-				<input id="upload" type="submit" value="Upload" class="btn btn-large btn-primary"/>
+				<input id="upload" type="submit" value="Upload" class="btn btn-large btn-primary" target="_blank"/>
 				<!-- <div id="reset" class="btn btn-primary">Reset</div> -->
 			</div>
 		</form>
 
-		<div id="update-msg">
+		<div id="progressbar" style="margin-left:15px;width:40%;" class="ui-progressbar">
+			<div id="progressbar-label" class="progress-label"></div>
 		</div>
 
 		<script src="/js/jquery.min.js"></script>
-		<script src="js/bootstrap.min.js"></script>
+		<script src="/js/jquery-ui.min.js"></script>
+		<script src="/js/bootstrap.min.js"></script>
 		<script src="/socket.io/socket.io.js"></script>
 		<script>
 			var socket = io();
 			socket.on('update', function(data, progress = false) {
 				if (data.progress) {
-					if($('#progress').length == 0){
-						$('#update-msg').append("<div id='progress'></div>");
-					}
-					$('#progress').text(data.msg);
+					$("#progressbar").progressbar("value", data.msg);
+					$("#progressbar-label").text('Percent Complete: ' + data.msg + "%");
 				} else {
-					$('#update-msg').append(data.msg+"<br/>");
+					$('#progressbar-label').text(data.msg);
+					if(data.msg === "Done."){
+						$("#progressbar").progressbar("value", 100);
+						resetPage();
+					}
 				}
+			});
+
+			$('#upload').on('click', function() {
+				$("#progressbar").progressbar({
+					value: false
+				});
+
+				$("#progressbar-label").text("Loading...");
 			});
 
 			$('#slider').on('change', function() {
 				$('#rpm').val($('#slider').val());
 			});
 
+			function resetPage(){
+				setTimeout(function() {
+					$.get('/', function(data){
+						// location.reload();
+					});
+				}, 1000);
+			}
+
 			$('#reset').on('click', function() {
 				$('#rpm').val(0.73);
 				$('#slider').val(0.73);
 			});
-
-			$('#upload').on('click', function() {
-				$('#update-msg').text("");
-			});
 		</script>
+
+	    <style>
+		  	.ui-progressbar {
+		    	position: relative;
+		  	}
+		  	.progress-label {
+		    	position: absolute;
+		    	text-align: center;
+		    	top: 4px;
+		    	font-weight: bold;
+		    	text-shadow: 1px 1px 0 #fff;
+		  	}
+  		</style>
 	</body>
 </html>
