@@ -89,7 +89,6 @@ function convertYoutubeToMp3(res, callback) {
     }).on('end', function() {
         
       communicate("Stream finished...");
-
       communicate("Downloading file " + title + " (C & S).mp3...");
           
       res.download(audiofile, title + ' (C & S).mp3', function(err){
