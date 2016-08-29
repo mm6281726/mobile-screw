@@ -41,39 +41,29 @@ app.post('/upload', function (req, res) {
     if ( e.code != 'EEXIST' ) throw e;
   }
 
-  res.locals.requestId = cuid();  
+  res.locals.requestId = cuid();
 
   res.locals.url = req.body.url;
   res.locals.playbackrate = req.body.rpm
 
-  console.log("Initiating socket connection...");
+  console.log("Initiating...");
 
-  var listener = io.listen(server);
-
-  listener.sockets.on('connection', function(socket) {
-
-    console.log("Socket connected...");
-
-    async.waterfall([
-      async.apply(applyRes, res, socket),
-      getTitle,
-      convertYoutubeToMp3
-    ], function (err, results) {
-      if(err) {
-        msg = err;
-        communicate(socket, msg);
-      } else {
-        msg = results
-        communicate(socket, msg);
-      }
-    });
+  async.waterfall([
+    async.apply(applyRes, res),
+    getTitle,
+    convertYoutubeToMp3
+  ], function (err, results) {
+    if(err) {
+      communicate(err);        
+    } else {
+      communicate(results);
+    }
   });
 });
 
-function convertYoutubeToMp3(res, socket, callback) {  
+function convertYoutubeToMp3(res, callback) {  
 
-  msg = "Stream in progress..."
-  communicate(socket, msg);
+  communicate("Stream in progress...");
 
   var title = res.locals.info.title;
   var audiofile = pathname+title+res.locals.requestId+'.mp3';
@@ -84,43 +74,37 @@ function convertYoutubeToMp3(res, socket, callback) {
   ffmpeg({ timeout: 30 })
     .input(ytdl.downloadFromInfo(res.locals.info, { filter: function(f) {
       return f.container === 'mp4' && !f.encoding; } }))
-      .audioFilters(['asetrate=' + samplerate * playbackrate])
-      .outputOptions(['-write_xing 0'])
-      .save(audiofile)
-      .on('error', function(err) {
-        callback(err.message, null);
-      })
-      .on('progress', function(progress) {
+    .audioFilters(['asetrate=' + samplerate * playbackrate])
+    .outputOptions(['-write_xing 0'])
+    .save(audiofile)
+    .on('error', function(err) {
+      callback(err.message, null);
+    })
+    .on('progress', function(progress) {
 
-        var currentProgress = new Date('1970-01-01T' + progress.timemark + 'Z').getTime() / 1000
-        var percentProgress = Math.floor((currentProgress / totalTime) * 100)
-        var msg = percentProgress;
-        communicate(socket, msg, true);
+      var currentProgress = new Date('1970-01-01T' + progress.timemark + 'Z').getTime() / 1000
+      var percentProgress = Math.floor((currentProgress / totalTime) * 100)
+      communicate(percentProgress, true);
 
-      }).on('end', function() {
+    }).on('end', function() {
         
-        msg = "Stream finished..."
-        communicate(socket, msg);
+      communicate("Stream finished...");
 
-        msg = "Downloading file " + title + " (C & S).mp3...";
-        communicate(socket, msg);
+      communicate("Downloading file " + title + " (C & S).mp3...");
           
-        res.download(audiofile, title + ' (C & S).mp3', function(err){
-          if(err){
-            console.log(err.message);
-            callback("Sorry, there was an error.", null);            
-          }else{
-            fs.unlink(audiofile);
-            callback(null, "Done.");
-          }
-        });
+      res.download(audiofile, title + ' (C & S).mp3', function(err){
+        if(err){
+          console.log(err.message);
+          callback("Sorry, there was an error.", null);            
+        }else{
+          fs.unlink(audiofile);
+          callback(null, "Done.");
+        }
       });
+    });
 }
 
-function getTitle(res, socket, callback) {
-  var msg = "Processing request...";
-  communicate(socket, msg);
-
+function getTitle(res, callback) {
   ytdl.getInfo(res.locals.url, function(err, info) {
     if (err) {
       console.log(err.message);
@@ -128,21 +112,23 @@ function getTitle(res, socket, callback) {
     } else {
       res.locals.info = info;      
 
-      msg = "Title: " + info.title
-      communicate(socket, msg);
+      communicate("Title: " + info.title);
 
-      callback(null, res, socket);
+      callback(null, res);
     }
   });
 }
 
-function applyRes(res, socket, callback) {  
-  callback(null, res, socket);
+function applyRes(res, callback) {
+
+  communicate("Processing request...");
+
+  callback(null, res);
 }
 
-function communicate(socket, msg, progress = false) {
+function communicate(msg, progress = false) {
   console.log(msg);
-  socket.emit('update', { msg: msg, progress: progress });
+  io.sockets.emit('update', { msg: msg, progress: progress });
 }
 
 server.listen(port, function() {
